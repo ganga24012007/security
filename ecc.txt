@@ -1,0 +1,130 @@
+
+import java.util.*;
+
+public class ECC {
+
+    // Module 1: Modular arithmetic
+    public static int mod(long x, int p) {
+        return (int)((x % p + p) % p);
+    }
+
+    public static int inverse(int x, int p) {
+        x = mod(x, p);
+
+        for (int i = 1; i < p; i++) {
+            if (mod((long)x * i, p) == 1) {
+                return i;
+            }
+        }
+
+        throw new ArithmeticException("Inverse does not exist");
+    }
+
+    // Module 2: Generate affine points
+    public static List<int[]> generatePoints(int p, int a, int b) {
+        List<int[]> points = new ArrayList<>();
+
+        for (int x = 0; x < p; x++) {
+            for (int y = 0; y < p; y++) {
+                long lhs = mod((long)y * y, p);
+                long rhs = mod(
+                    (long)x * x * x + (long)a * x + b, p
+                );
+
+                if (lhs == rhs) {
+                    points.add(new int[]{x, y});
+                }
+            }
+        }
+
+        return points;
+    }
+
+    // Module 3: Point addition and doubling
+    public static int[] pointAdd(
+            int x1, int y1, int x2, int y2,
+            int a, int p) {
+
+        // P + (-P) = O
+        if (x1 == x2 && mod((long)y1 + y2, p) == 0) {
+            return null;
+        }
+
+        int lambda;
+
+        // Point doubling: P + P
+        if (x1 == x2 && y1 == y2) {
+            lambda = mod(
+                (3L * x1 * x1 + a) * inverse(2 * y1, p),
+                p
+            );
+        } else {
+            // Ordinary point addition: P + Q
+            lambda = mod(
+                (long)(y2 - y1) * inverse(x2 - x1, p),
+                p
+            );
+        }
+
+        int x3 = mod(
+            (long)lambda * lambda - x1 - x2, p
+        );
+
+        int y3 = mod(
+            (long)lambda * (x1 - x3) - y1, p
+        );
+
+        return new int[]{x3, y3};
+    }
+
+    // Display a point
+    public static void show(String name, int[] point) {
+        if (point == null) {
+            System.out.println(name + " = O");
+        } else {
+            System.out.println(
+                name + " = (" + point[0] + ", " + point[1] + ")"
+            );
+        }
+    }
+
+    public static void main(String[] args) {
+
+        int p = 17;
+        int a = 2;
+        int b = 2;
+
+        // Module 1 test
+        System.out.println("Inverse of 2 = " + inverse(2, p));
+
+        // Module 2 test
+        List<int[]> points = generatePoints(p, a, b);
+
+        System.out.println("\nAffine points:");
+        for (int[] point : points) {
+            System.out.println(
+                "(" + point[0] + ", " + point[1] + ")"
+            );
+        }
+
+        System.out.println("Total affine points = " + points.size());
+
+        // Module 3 test: G = (5, 1)
+        int[] G = {5, 1};
+
+        int[] doubled = pointAdd(
+            G[0], G[1], G[0], G[1], a, p
+        );
+
+        show("\nG", G);
+        show("2G", doubled);
+
+        int[] added = pointAdd(
+            G[0], G[1],
+            doubled[0], doubled[1],
+            a, p
+        );
+
+        show("3G", added);
+    }
+}

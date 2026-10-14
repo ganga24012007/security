@@ -1,0 +1,77 @@
+@echo off
+cd /d "%USERPROFILE%\OneDrive\Desktop\OpenSSL_Lab"
+openssl version
+
+echo Ganga - Reg No: YOUR_REGISTER_NUMBER > plain.txt
+type plain.txt
+
+openssl enc -aes-128-cbc -e -in plain.txt -out cipher.bin -k "password" -nosalt
+certutil -encodehex cipher.bin stdout
+openssl enc -aes-128-cbc -d -in cipher.bin -out pt.txt -k "password" -nosalt
+type pt.txt
+fc /b plain.txt pt.txt
+
+openssl enc -aes-128-ecb -e -in plain.txt -out cipher_ecb.bin -k "password" -nosalt
+openssl enc -aes-128-cfb -e -in plain.txt -out cipher_cfb.bin -k "password" -nosalt
+openssl enc -aes-128-ofb -e -in plain.txt -out cipher_ofb.bin -k "password" -nosalt
+openssl enc -aes-128-ctr -e -in plain.txt -out cipher_ctr.bin -k "password" -nosalt
+dir cipher_*.bin
+
+copy plain.txt plain_mod.txt
+notepad plain_mod.txt
+openssl enc -aes-128-cbc -e -in plain_mod.txt -out cipher_mod.bin -k "password" -nosalt
+fc /b cipher.bin cipher_mod.bin
+
+openssl enc -aes-256-cbc -e -in plain.txt -out cipher_pbkdf2.bin -k "password" -pbkdf2 -iter 100000
+openssl enc -aes-256-cbc -d -in cipher_pbkdf2.bin -out pt_pbkdf2.txt -k "password" -pbkdf2 -iter 100000
+type pt_pbkdf2.txt
+fc /b plain.txt pt_pbkdf2.txt
+
+openssl genrsa -out pvtkey.pem 2048
+openssl rsa -pubout -in pvtkey.pem -out pubkey.pem
+dir *.pem
+
+openssl rsa -text -in pvtkey.pem -noout
+
+openssl pkeyutl -encrypt -in plain.txt -pubin -inkey pubkey.pem -out c1.bin
+certutil -encodehex c1.bin stdout
+openssl pkeyutl -decrypt -in c1.bin -inkey pvtkey.pem -out dec1.txt
+type dec1.txt
+fc /b plain.txt dec1.txt
+
+openssl genrsa -out pvtkey4096.pem 4096
+
+fsutil file createnew largefile.bin 300
+openssl pkeyutl -encrypt -pubin -inkey pubkey.pem -in largefile.bin -out c_big.bin
+
+openssl dgst -md5 plain.txt
+openssl dgst -sha256 plain.txt
+openssl dgst -sha512 plain.txt
+openssl dgst -sha256 -hmac "sharedsecret" plain.txt
+
+copy plain.txt plain_mod.txt
+notepad plain_mod.txt
+openssl dgst -sha256 plain.txt
+openssl dgst -sha256 plain_mod.txt
+
+openssl dgst -sha1 -sign pvtkey.pem -out s.bin plain.txt
+openssl dgst -sha1 -verify pubkey.pem -signature s.bin plain.txt
+
+openssl dgst -sha256 -sign pvtkey.pem -out s256.bin plain.txt
+openssl dgst -sha256 -verify pubkey.pem -signature s256.bin plain.txt
+openssl dgst -sha256 -verify pubkey.pem -signature s256.bin plain_mod.txt
+
+openssl req -x509 -new -key pvtkey.pem -out cert.pem -days 365 -subj "/CN=Ganga/O=TCE"
+openssl x509 -in cert.pem -text -noout
+
+openssl req -new -key pvtkey.pem -out request.csr -subj "/CN=Ganga/O=TCE"
+openssl req -in request.csr -text -noout
+dir cert.pem request.csr
+
+openssl speed -evp aes-128-cbc
+openssl speed rsa2048
+
+openssl version
+openssl help
+
+pause

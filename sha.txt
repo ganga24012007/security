@@ -1,0 +1,93 @@
+
+public class SHA {
+
+    static int charsToHexWord(String fourChars) {
+        if (fourChars == null || fourChars.length() != 4) {
+            throw new IllegalArgumentException(
+                "exactly 4 characters are required");
+        }
+
+        StringBuilder hex = new StringBuilder();
+
+        for (int i = 0; i < 4; i++) {
+            hex.append(String.format("%02X",
+                (int) fourChars.charAt(i) & 0xFF));
+        }
+
+        return (int) Long.parseLong(hex.toString(), 16);
+    }
+
+    static int booleanFunction(int choice, int B, int C, int D) {
+        switch (choice) {
+            case 0x1:
+                return (B & C) ^ (~B & D);
+            case 0x2:
+                return B ^ C ^ D;
+            case 0x3:
+                return (B & C) ^ (B & D) ^ (C & D);
+            case 0x4:
+                return B ^ C ^ D;
+            default:
+                throw new IllegalArgumentException("Invalid choice");
+        }
+    }
+
+    static int leftRotate(int x, int n) {
+        n = n & 0x1F;
+        if (n == 0) {
+            return x;
+        }
+        return (x << n) | (x >>> (32 - n));
+    }
+
+    static int addMod32(int... values) {
+        long sum = 0;
+        for (int v : values) {
+            sum += (v & 0xFFFFFFFFL);
+        }
+        return (int) (sum & 0xFFFFFFFFL);
+    }
+
+    static int[] executeStep(
+            int A, int B, int C, int D, int E,
+            int W, int K, int fnChoice) {
+
+        int f = booleanFunction(fnChoice, B, C, D);
+        int rotA = leftRotate(A, 5);
+
+        int newA = addMod32(rotA, f, E, W, K);
+        int newB = A;
+        int newC = leftRotate(B, 30);
+        int newD = C;
+        int newE = D;
+
+        return new int[] {
+            newA, newB, newC, newD, newE
+        };
+    }
+
+    public static void main(String[] args) {
+
+        int A = 0x67452301;
+        int B = 0xEFCDAB89;
+        int C = 0x98BADCFE;
+        int D = 0x10325476;
+        int E = 0xC3D2E1F0;
+
+        int W = charsToHexWord("abcd");
+        int K = 0x5A827999;
+        int fnChoice = 0x1;
+
+        int[] result = executeStep(
+            A, B, C, D, E, W, K, fnChoice
+        );
+
+        System.out.printf("W = %08X%n", W);
+
+        System.out.printf("A' = %08X%n", result[0]);
+        System.out.printf("B' = %08X%n", result[1]);
+        System.out.printf("C' = %08X%n", result[2]);
+        System.out.printf("D' = %08X%n", result[3]);
+        System.out.printf("E' = %08X%n", result[4]);
+    }
+}

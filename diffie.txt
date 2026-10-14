@@ -1,0 +1,344 @@
+
+import java.util.Scanner;
+
+public class PrimitiveRoot {
+
+    static int gcd(int a, int b) {
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
+    }
+
+    static boolean isPrimitiveRoot(int g, int p) {
+
+        if (g <= 1 || g >= p || gcd(g, p) != 1) {
+            return false;
+        }
+
+        boolean[] visited = new boolean[p];
+
+        int value = 1;
+
+        for (int i = 1; i < p; i++) {
+            value = (value * g) % p;
+
+            if (value == 1 && i < p - 1) {
+                return false;
+            }
+            visited[value] = true;
+        }
+
+        for (int i = 1; i < p; i++) {
+            if (!visited[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static void main(String[] args) {
+
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter prime number p: ");
+        int p = sc.nextInt();
+
+        System.out.println("Primitive roots modulo " + p + ":");
+
+        for (int g = 2; g < p; g++) {
+            if (isPrimitiveRoot(g, p)) {
+                System.out.println(g);
+            }
+        }
+
+        sc.close();
+    }
+}
+
+
+-------------------server code---------------------
+
+import java.math.BigInteger;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.security.SecureRandom;
+import java.security.MessageDigest;
+
+public class DHServer {
+
+    static BigInteger P = BigInteger.valueOf(23);
+    static BigInteger G = BigInteger.valueOf(5);
+
+    public static BigInteger modPow(
+            BigInteger base, BigInteger exp, BigInteger p) {
+        return base.modPow(exp, p);
+    }
+
+    public static BigInteger[] generateKeyPair(
+            BigInteger p, BigInteger g) {
+
+        SecureRandom random = new SecureRandom();
+
+        BigInteger privateKey =
+                new BigInteger(p.bitLength(), random);
+
+        privateKey = privateKey
+                .mod(p.subtract(BigInteger.valueOf(3)))
+                .add(BigInteger.valueOf(2));
+
+        BigInteger publicKey =
+                modPow(g, privateKey, p);
+
+        return new BigInteger[]{privateKey, publicKey};
+    }
+
+    public static BigInteger computeSharedSecret(
+            BigInteger otherPublic,
+            BigInteger myPrivate,
+            BigInteger p) {
+
+        return modPow(otherPublic, myPrivate, p);
+    }
+
+    public static String sha256(String value) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] hash = md.digest(value.getBytes("UTF-8"));
+
+        StringBuilder result = new StringBuilder();
+
+        for (byte b : hash) {
+            result.append(String.format("%02x", b & 0xff));
+        }
+
+        return result.toString();
+    }
+
+    public static void main(String[] args) throws Exception {
+
+        ServerSocket serverSocket = new ServerSocket(5000);
+        System.out.println("Server waiting for client...");
+
+        Socket socket = serverSocket.accept();
+        System.out.println("Client connected!");
+
+        DataInputStream in =
+                new DataInputStream(socket.getInputStream());
+
+        DataOutputStream out =
+                new DataOutputStream(socket.getOutputStream());
+
+        // Generate server's key pair
+        BigInteger[] keys = generateKeyPair(P, G);
+        BigInteger privateKey = keys[0];
+        BigInteger publicKey = keys[1];
+
+        // Receive client's public key
+        BigInteger clientPublic =
+                new BigInteger(in.readUTF());
+
+        // Send server's public key
+        out.writeUTF(publicKey.toString());
+        out.flush();
+
+        // Calculate shared secret
+        BigInteger sharedSecret =
+                computeSharedSecret(clientPublic, privateKey, P);
+
+        System.out.println("Server public key: " + publicKey);
+        System.out.println("Shared secret: " + sharedSecret);
+
+        // Send key confirmation
+        String serverHash = sha256(sharedSecret.toString());
+        out.writeUTF(serverHash);
+        out.flush();
+
+        // Receive client's key confirmation
+        String clientHash = in.readUTF();
+
+        if (serverHash.equals(clientHash)) {
+            System.out.println("Key confirmation successful!");
+        } else {
+            System.out.println("Key confirmation failed!");
+        }
+
+        socket.close();
+        serverSocket.close();
+    }
+}
+----------------client -code--------------------
+
+import java.math.BigInteger;
+import java.net.Socket;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.security.SecureRandom;
+import java.security.MessageDigest;
+
+public class DHClient {
+
+    static BigInteger P = BigInteger.valueOf(23);
+    static BigInteger G = BigInteger.valueOf(5);
+
+    public static BigInteger modPow(
+            BigInteger base, BigInteger exp, BigInteger p) {
+        return base.modPow(exp, p);
+    }
+
+    public static BigInteger[] generateKeyPair(
+            BigInteger p, BigInteger g) {
+
+        SecureRandom random = new SecureRandom();
+
+        BigInteger privateKey =
+                new BigInteger(p.bitLength(), random);
+
+        privateKey = privateKey
+                .mod(p.subtract(BigInteger.valueOf(3)))
+                .add(BigInteger.valueOf(2));
+
+        BigInteger publicKey =
+                modPow(g, privateKey, p);
+
+        return new BigInteger[]{privateKey, publicKey};
+    }
+
+    public static BigInteger computeSharedSecret(
+            BigInteger otherPublic,
+            BigInteger myPrivate,
+            BigInteger p) {
+
+        return modPow(otherPublic, myPrivate, p);
+    }
+
+    public static String sha256(String value) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] hash = md.digest(value.getBytes("UTF-8"));
+
+        StringBuilder result = new StringBuilder();
+
+        for (byte b : hash) {
+            result.append(String.format("%02x", b & 0xff));
+        }
+
+        return result.toString();
+    }
+
+    public static void main(String[] args) throws Exception {
+
+        // Connect to server
+        Socket socket = new Socket("localhost", 5000);
+        System.out.println("Connected to server!");
+
+        DataInputStream in =
+                new DataInputStream(socket.getInputStream());
+
+        DataOutputStream out =
+                new DataOutputStream(socket.getOutputStream());
+
+        // Generate client's key pair
+        BigInteger[] keys = generateKeyPair(P, G);
+        BigInteger privateKey = keys[0];
+        BigInteger publicKey = keys[1];
+
+        // Send client's public key
+        out.writeUTF(publicKey.toString());
+        out.flush();
+
+        // Receive server's public key
+        BigInteger serverPublic =
+                new BigInteger(in.readUTF());
+
+        // Calculate shared secret
+        BigInteger sharedSecret =
+                computeSharedSecret(serverPublic, privateKey, P);
+
+        System.out.println("Client public key: " + publicKey);
+        System.out.println("Shared secret: " + sharedSecret);
+
+        // Receive server's key confirmation
+        String serverHash = in.readUTF();
+
+        String clientHash = sha256(sharedSecret.toString());
+
+        // Send client's key confirmation
+        out.writeUTF(clientHash);
+        out.flush();
+
+        // Verify server's confirmation
+        if (serverHash.equals(clientHash)) {
+            System.out.println("Key confirmation successful!");
+        } else {
+            System.out.println("Key confirmation failed!");
+        }
+
+        socket.close();
+    }
+}
+
+
+
+import java.util.Scanner;
+
+public class PrimitiveRoot {
+
+    static int gcd(int a, int b) {
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
+    }
+
+    static boolean isPrimitiveRoot(int g, int p) {
+
+        if (g <= 1 || g >= p || gcd(g, p) != 1) {
+            return false;
+        }
+
+        boolean[] visited = new boolean[p];
+
+        int value = 1;
+
+        for (int i = 1; i < p; i++) {
+            value = (value * g) % p;
+
+            if (value == 1 && i < p - 1) {
+                return false;
+            }
+            visited[value] = true;
+        }
+
+        for (int i = 1; i < p; i++) {
+            if (!visited[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static void main(String[] args) {
+
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter prime number p: ");
+        int p = sc.nextInt();
+
+        System.out.println("Primitive roots modulo " + p + ":");
+
+        for (int g = 2; g < p; g++) {
+            if (isPrimitiveRoot(g, p)) {
+                System.out.println(g);
+            }
+        }
+
+        sc.close();
+    }
+}
